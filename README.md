@@ -21,13 +21,14 @@ All processing — embedding generation and text generation — runs entirely on
 
 ## Project Structure
 
+```
 foundry-rag-project/
-├── main.py # One-time setup script: embeds documents and populates the database
-├── rag_core.py # Core RAG logic (RagSystem class): retrieval, prompting, generation
-├── app.py # Streamlit web interface
-├── requirements.txt # Python dependencies
-└── rag_database.db # SQLite database (created after running main.py)
-
+├── main.py            # One-time setup script: embeds documents and populates the database
+├── rag_core.py         # Core RAG logic (RagSystem class): retrieval, prompting, generation
+├── app.py              # Streamlit web interface
+├── requirements.txt    # Python dependencies
+└── rag_database.db     # SQLite database (created after running main.py)
+```
 
 ## Setup & Installation
 
