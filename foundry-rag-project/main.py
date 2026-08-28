@@ -1,96 +1,75 @@
-﻿import sqlite3
+﻿"""
+Sets up the database by creating and populating it with document embeddings.
+Usage: python main.py
+(Run this once; afterwards, launch the UI with 'streamlit run app.py'.)
+"""
+
+import sqlite3
 import numpy as np
 from foundry_local_sdk import Configuration, FoundryLocalManager
 
 
 def vector_to_blob(vector):
+    """Converts an embedding vector into a byte blob for SQLite storage."""
     return np.array(vector, dtype=np.float32).tobytes()
 
 
-def blob_to_vector(blob):
-    return np.frombuffer(blob, dtype=np.float32)
+# Knowledge base: the source documents the chatbot will answer from
+documents = [
+    "Foundry Local is a Microsoft tool that runs AI models directly on-device, without a cloud connection.",
+    "RAG answers a question by first retrieving relevant documents, then augmenting the prompt with that information, and finally generating an answer with the model.",
+    "Embedding is the process of converting text into a numerical vector; semantically similar texts end up close together in vector space.",
+    "Cosine similarity measures the angular similarity between two vectors, producing a result between -1 and 1.",
+    "SQLite is a lightweight, serverless database that runs from a single file.",
+    "Chunking is the process of splitting a long document into smaller pieces, which helps embeddings produce more accurate results.",
+    "Prompt engineering is the process of designing system and user prompts to achieve the desired behavior from a language model.",
+    "Foundry Local's catalog includes both small, fast models and large, powerful ones; the choice depends on the speed-quality tradeoff.",
+]
 
 
-def cosine_similarity(v1, v2):
-    v1, v2 = np.array(v1), np.array(v2)
-    return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-
-
-def get_top_chunks(query, embed_client, top_n=3):
-    response = embed_client.generate_embedding(query)
-    query_embedding = response.data[0].embedding
-
-    conn = sqlite3.connect("rag_database.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT text, embedding FROM documents")
-    rows = cursor.fetchall()
-    conn.close()
-
-    scored = []
-    for text, blob in rows:
-        chunk_embedding = blob_to_vector(blob)
-        score = cosine_similarity(query_embedding, chunk_embedding)
-        scored.append((text, score))
-
-    scored.sort(key=lambda x: x[1], reverse=True)
-    return scored[:top_n]
-
-
-def answer_query(query, embed_client, chat_client, top_n=3):
-    # 1. Retrieve
-    top_chunks = get_top_chunks(query, embed_client, top_n=top_n)
-    context = "\n".join([f"- {text}" for text, score in top_chunks])
-
-    # 2. Augment
-    system_prompt = (
-        "Sen sadece verilen bağlamı kullanarak cevap veren bir asistansın. "
-        "Bağlamda olmayan bir şey soruluyorsa 'Bu bilgi elimde yok' de.\n\n"
-        f"Bağlam:\n{context}"
-    )
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": query},
-    ]
-
-    # 3. Generate
-    response = chat_client.complete_chat(messages)
-    answer = response.choices[0].message.content
-
-    return answer, top_chunks
-
-
-if __name__ == "__main__":
-    # Foundry Local'i başlat
+def setup_database():
+    """Initializes Foundry Local, embeds the documents, and stores them in SQLite."""
     config = Configuration(app_name="foundry-rag-project")
     FoundryLocalManager.initialize(config)
     manager = FoundryLocalManager.instance
 
-    # Embedding modeli (veritabanı zaten dolu, sadece retrieval için lazım)
     embed_model = manager.catalog.get_model("qwen3-embedding-0.6b")
-    embed_model.download(lambda p: print(f"\rEmbedding modeli: %{p:.1f}", end="", flush=True))
+    print("Downloading embedding model...")
+    embed_model.download(lambda p: print(f"\rDownloading: {p:.1f}%", end="", flush=True))
     print()
     embed_model.load()
     embed_client = embed_model.get_embedding_client()
 
-    # Chat modeli
-    chat_model = manager.catalog.get_model("phi-4-mini")
-    chat_model.download(lambda p: print(f"\rChat modeli: %{p:.1f}", end="", flush=True))
-    print()
-    chat_model.load()
-    chat_client = chat_model.get_chat_client()
+    conn = sqlite3.connect("rag_database.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        text TEXT NOT NULL,
+        embedding BLOB NOT NULL
+    )
+    """)
 
-    print("\nModeller hazır.\n")
+    cursor.execute("SELECT COUNT(*) FROM documents")
+    existing_count = cursor.fetchone()[0]
 
-    # Test soruları
-    test_questions = [
-        "Uzun bir belgeyi nasıl parçalara bölerim?",
-        "Foundry Local ne işe yarar?",
-        "Bugün hava nasıl?",  # bağlam dışı, "bilmiyorum" demeli
-    ]
+    if existing_count == 0:
+        print(f"Processing {len(documents)} documents...")
+        response = embed_client.generate_embeddings(documents)
+        embeddings = [item.embedding for item in response.data]
+        for text, emb in zip(documents, embeddings):
+            cursor.execute(
+                "INSERT INTO documents (text, embedding) VALUES (?, ?)",
+                (text, vector_to_blob(emb))
+            )
+        conn.commit()
+        print(f"{len(documents)} documents saved to the database.")
+    else:
+        print(f"Database already populated ({existing_count} records), skipping insert.")
 
-    for q in test_questions:
-        print(f"Soru: {q}")
-        answer, chunks = answer_query(q, embed_client, chat_client)
-        print(f"Cevap: {answer}")
-        print(f"(Kullanılan bağlam: {[c[0][:40] + '...' for c in chunks]})")
-        print("-" * 60)
+    conn.close()
+
+
+if __name__ == "__main__":
+    setup_database()
+    print("\nSetup complete. Now run 'streamlit run app.py' to launch the UI.")

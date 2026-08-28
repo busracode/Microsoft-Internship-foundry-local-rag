@@ -1,4 +1,5 @@
 import sqlite3
+import time
 import numpy as np
 from foundry_local_sdk import Configuration, FoundryLocalManager
 
@@ -17,6 +18,8 @@ def cosine_similarity(v1, v2):
 
 
 class RagSystem:
+    """Wraps the embedding model, chat model, and database access for the RAG pipeline."""
+
     def __init__(self):
         config = Configuration(app_name="foundry-rag-project")
         FoundryLocalManager.initialize(config)
@@ -33,6 +36,7 @@ class RagSystem:
         self.chat_client = self.chat_model.get_chat_client()
 
     def get_top_chunks(self, query, top_n=3):
+        """Returns the top_n most relevant chunks for a given query, as (text, score) pairs."""
         response = self.embed_client.generate_embedding(query)
         query_embedding = response.data[0].embedding
 
@@ -52,13 +56,20 @@ class RagSystem:
         return scored[:top_n]
 
     def answer_query(self, query, top_n=3):
+        """Runs the full RAG pipeline: retrieve relevant chunks, augment the prompt, generate an answer."""
+        start_time = time.time()
+
         top_chunks = self.get_top_chunks(query, top_n=top_n)
         context = "\n".join([f"- {text}" for text, score in top_chunks])
 
         system_prompt = (
-            "Sen sadece verilen bağlamı kullanarak cevap veren bir asistansın. "
-            "Bağlamda olmayan bir şey soruluyorsa 'Bu bilgi elimde yok' de.\n\n"
-            f"Bağlam:\n{context}"
+            "You are an assistant that answers questions using only the context provided below.\n"
+            "RULES:\n"
+            "1. Base your answer strictly on the context below.\n"
+            "2. If the context does not contain enough information to answer, reply ONLY with "
+            "'I don't have this information.' and nothing else.\n"
+            "3. If the context does contain relevant information, give a complete answer using those details.\n\n"
+            f"Context:\n{context}"
         )
         messages = [
             {"role": "system", "content": system_prompt},
@@ -67,5 +78,8 @@ class RagSystem:
 
         response = self.chat_client.complete_chat(messages)
         answer = response.choices[0].message.content
+
+        elapsed = time.time() - start_time
+        print(f"[Response time: {elapsed:.2f}s]")
 
         return answer, top_chunks
