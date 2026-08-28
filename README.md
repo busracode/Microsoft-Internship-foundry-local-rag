@@ -35,7 +35,7 @@ foundry-rag-project/
 
 1. Clone the repository and navigate into it:
 ```bash
-   git clone <repo-url>
+   git clone https://github.com/busracode/Microsoft-Internship-foundry-local-rag.git
    cd foundry-rag-project
 ```
 
