@@ -2,7 +2,7 @@
 
 A fully offline, on-device question-answering assistant built with [Microsoft Foundry Local](https://learn.microsoft.com/en-us/azure/foundry-local/). It uses Retrieval-Augmented Generation (RAG) to answer questions based on a local knowledge base — no cloud connection, no API keys, no internet required after setup.
 
-## 🎥 Demo Video
+# 🎥 Demo Video
 
 [![Watch the demo](https://i.ytimg.com/vi/VIDEO_ID/hqdefault.jpg)](https://www.youtube.com/watch?v=DnA4s5s0tMo)
 
