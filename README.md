@@ -4,7 +4,7 @@ A fully offline, on-device question-answering assistant built with [Microsoft Fo
 
 ## 🎥 Demo Video
 
-[![Watch the demo](https://img.youtube.com/vi/GERÇEK_VIDEO_ID/hqdefault.jpg)](https://www.youtube.com/watch?v=DnA4s5s0tMo)
+[![Watch the demo](https://i.ytimg.com/vi/VIDEO_ID/hqdefault.jpg)](https://www.youtube.com/watch?v=DnA4s5s0tMo)
 
 > Watch the full walkthrough — architecture explanation, live demo, and lessons learned.
 
